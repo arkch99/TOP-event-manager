@@ -15,6 +15,18 @@ def fix_zip(code)
   end
 end
 
+def fix_phone(num)
+  num.gsub!(/-|\(|\)|\s|\./, "") # get rid of any -, ., ( ) or space
+  if num.length < 10 || num.length > 11 || (num.length == 11 && num[0] != 1)
+    return nil
+  else
+    if num.length == 11
+      num = num[1..10]
+    end
+    return num[0..2] + "-" + num[3..5] + "-" + num[6..9]    
+  end
+end
+
 def legislators_from_zip(zip)
   civic_info = Google::Apis::CivicinfoV2::CivicInfoService.new
   civic_info.key = "AIzaSyAZeJSg80FP6AjOoJhwLLLhhkNKfcYZA0A"
@@ -46,15 +58,23 @@ contents = CSV.open("event-attendees.csv", headers:true, header_converters: :sym
 
 template_letter = File.read("form_letter.erb")
 erb_template = ERB.new(template_letter)
+phone_list = File.open("output/phones.txt", "a")
 
 contents.each do |row|
   id = row[0] # the index serves as id
   name = row[:first_name]
   zip = fix_zip(row[:zipcode])
+  num = fix_phone(row[:homephone])
+  if !num.nil?
+    puts num
+    phone_list.puts "#{name}: #{num}"
+  else 
+    puts "#{row[:homephone]} is invalid!"
+  end
   #puts "#{name} #{zip}"  
   legislators = legislators_from_zip(zip)
   form_letter = erb_template.result(binding) # generate the letter
   #puts form_letter
   #puts "\n#{name} #{zip} #{legislators}"
-  save_letter(id, form_letter)
+  #save_letter(id, form_letter) 
 end
