@@ -1,9 +1,7 @@
 require 'csv'
 require 'erb'
+require 'date'
 require 'google/apis/civicinfo_v2'
-
-#API key: AIzaSyAZeJSg80FP6AjOoJhwLLLhhkNKfcYZA0A
-
 
 def fix_zip(code)
   if code.nil?
@@ -52,6 +50,14 @@ def save_letter(id, form_letter)
   end
 end
 
+def count_qty(some_hash, key)
+  if some_hash.has_key?(key)
+    some_hash[key] += 1
+  else
+    some_hash[key] = 1
+  end
+end
+
 puts "EventManager initialised!"
 
 contents = CSV.open("event-attendees.csv", headers:true, header_converters: :symbol)
@@ -59,22 +65,36 @@ contents = CSV.open("event-attendees.csv", headers:true, header_converters: :sym
 template_letter = File.read("form_letter.erb")
 erb_template = ERB.new(template_letter)
 phone_list = File.open("output/phones.txt", "a")
+freq_hrs = {}
+freq_wday = {}
 
 contents.each do |row|
   id = row[0] # the index serves as id
   name = row[:first_name]
   zip = fix_zip(row[:zipcode])
   num = fix_phone(row[:homephone])
-  if !num.nil?
-    puts num
+  if !num.nil?    
     phone_list.puts "#{name}: #{num}"
   else 
     puts "#{row[:homephone]} is invalid!"
   end
-  #puts "#{name} #{zip}"  
+  
+  dtime = DateTime.strptime(row[:regdate], "%m/%d/%Y %H:%M")
+  hr = dtime.hour
+  day = DateTime::DAYNAMES[dtime.wday]
+ 
+  # count the number of registrations by hour and day, and store in freq_hrs, freq_wday
+  count_qty(freq_hrs, hr) 
+  count_qty(freq_wday, day)  
+  
   legislators = legislators_from_zip(zip)
   form_letter = erb_template.result(binding) # generate the letter
-  #puts form_letter
-  #puts "\n#{name} #{zip} #{legislators}"
-  #save_letter(id, form_letter) 
+  save_letter(id, form_letter) 
 end
+
+phone_list.close
+
+max_hr = freq_hrs.max_by{ |hr, n| n }[0]
+puts "Hour with max registrations is #{max_hr} hours."
+max_wday = freq_wday.max_by{ |day, n| n }[0]
+puts "Day with max registrations is #{max_wday}."
