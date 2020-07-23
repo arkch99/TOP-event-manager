@@ -1,4 +1,5 @@
 require 'csv'
+require 'erb'
 require 'google/apis/civicinfo_v2'
 
 #API key: AIzaSyAZeJSg80FP6AjOoJhwLLLhhkNKfcYZA0A
@@ -35,10 +36,15 @@ puts "EventManager initialised!"
 
 contents = CSV.open("event-attendees.csv", headers:true, header_converters: :symbol)
 
+template_letter = File.read("form_letter.erb")
+erb_template = ERB.new(template_letter)
+
 contents.each do |row|
   name = row[:first_name]
   zip = fix_zip(row[:zipcode])
   #puts "#{name} #{zip}"  
   legislators = legislators_from_zip(zip)
-  puts "\n#{name} #{zip} #{legislators}"
+  form_letter = erb_template.result(binding)
+  puts form_letter
+  #puts "\n#{name} #{zip} #{legislators}"
 end
